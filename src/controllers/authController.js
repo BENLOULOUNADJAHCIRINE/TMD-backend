@@ -6,19 +6,15 @@ const login = async (req, res) => {
   try {
     const { matricule, password } = req.body;
 
-    const user = await prisma.user.findUnique({
-      where: { matricule }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Student not found' });
+    if (!matricule || !password) {
+      return res.status(400).json({ message: 'matricule and password are required' });
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
+    const user = await prisma.user.findUnique({ where: { matricule } });
+    if (!user) return res.status(404).json({ message: 'user not found' });
 
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Invalid password' });
-    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'wrong password' });
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
@@ -27,7 +23,7 @@ const login = async (req, res) => {
     );
 
     res.json({
-      message: 'Login successful',
+      message: 'login successful',
       token,
       user: {
         id: user.id,
@@ -36,8 +32,10 @@ const login = async (req, res) => {
         role: user.role
       }
     });
-  } catch (error) {
-    res.status(500).json({ message: 'Something went wrong', error });
+
+  } catch (err) {
+    console.error('login error:', err);
+    res.status(500).json({ message: 'something went wrong' });
   }
 };
 
@@ -45,57 +43,51 @@ const changePassword = async (req, res) => {
   try {
     const { matricule, currentPassword, newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({
-      where: { matricule }
-    });
+    const user = await prisma.user.findUnique({ where: { matricule } });
+    if (!user) return res.status(404).json({ message: 'user not found' });
 
-    if (!user) {
-      return res.status(404).json({ message: 'Student not found' });
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'current password is wrong' });
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'new password must be at least 6 characters' });
     }
 
-    const validPassword = await bcrypt.compare(currentPassword, user.password);
-
-    if (!validPassword) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
+    const hashed = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { matricule },
-      data: { password: hashedPassword }
+      data: { password: hashed }
     });
 
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Something went wrong', error });
+    res.json({ message: 'password updated' });
+
+  } catch (err) {
+    console.error('change password error:', err);
+    res.status(500).json({ message: 'something went wrong' });
   }
 };
 
 const seedSuperAdmin = async (req, res) => {
   try {
-    const existing = await prisma.user.findFirst({
-      where: { role: 'SUPER_ADMIN' }
-    });
+    const exists = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' } });
+    if (exists) return res.status(400).json({ message: 'super admin already exists' });
 
-    if (existing) {
-      return res.status(400).json({ message: 'Super Admin already exists' });
-    }
+    const hashed = await bcrypt.hash('superadmin123', 10);
 
-    const hashedPassword = await bcrypt.hash('superadmin123', 10);
-
-    const superAdmin = await prisma.user.create({
+    await prisma.user.create({
       data: {
         fullName: 'Super Admin',
         matricule: 'SUPERADMIN',
-        password: hashedPassword,
+        password: hashed,
         role: 'SUPER_ADMIN'
       }
     });
 
-    res.json({ message: 'Super Admin created successfully', superAdmin });
-  } catch (error) {
-    res.status(500).json({ message: 'Something went wrong', error });
+    res.status(201).json({ message: 'super admin created' });
+
+  } catch (err) {
+    console.error('seed error:', err);
+    res.status(500).json({ message: 'something went wrong' });
   }
 };
 

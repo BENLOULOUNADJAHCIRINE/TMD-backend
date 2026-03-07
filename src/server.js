@@ -14,7 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(fileUpload());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Routes
+// routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/superadmin', require('./routes/superadmin'));

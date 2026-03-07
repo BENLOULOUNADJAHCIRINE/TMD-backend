@@ -1,13 +1,92 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
-
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  fullName     String
+  matricule    String   @unique
+  password     String
+  role         Role     @default(STUDENT)
+  dateOfBirth  String?
+  placeOfBirth String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  certificates Certificate[]
+  requests     Request[]
+}
+
+model Certificate {
+  id          String      @id @default(uuid())
+  studentId   String
+  student     User        @relation(fields: [studentId], references: [id])
+  type        String
+  specialty   String
+  mention     String?
+  faculty     String?
+  sectionNum  String?
+  facultyNum  String?
+  issueDate   DateTime    @default(now())
+  status      CertStatus  @default(ACTIVE)
+  fileUrl     String?
+  uniqueCode  String      @unique
+
+  verifications Verification[]
+}
+
+model Request {
+  id           String        @id @default(uuid())
+  studentId    String
+  student      User          @relation(fields: [studentId], references: [id])
+  documentType String
+  reason       String
+  delivery     String
+  priority     Priority      @default(NORMAL)
+  status       RequestStatus @default(PENDING)
+  fileUrl      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Verification {
+  id            String      @id @default(uuid())
+  certificateId String
+  certificate   Certificate @relation(fields: [certificateId], references: [id])
+  verifiedAt    DateTime    @default(now())
+  ipAddress     String?
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STUDENT
+}
+
+enum CertStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum Priority {
+  URGENT
+  NORMAL
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

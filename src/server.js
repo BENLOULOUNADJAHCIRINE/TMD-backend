@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fileUpload = require('express-fileupload');
+const prisma = require('./config/prisma');
 require('dotenv').config();
 
 const app = express();
@@ -29,6 +30,11 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'TrustMyDegree API is running' });
 });
+
+
+prisma.$connect()
+  .then(() => console.log('trustmydegree database connected'))
+  .catch((err) => console.error('error in connection to database', err));
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

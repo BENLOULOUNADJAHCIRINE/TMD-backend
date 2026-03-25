@@ -1,4 +1,4 @@
-const prisma = require('../prisma');
+const prisma = require('../config/prisma');
 
 const verifyCertificate = async (req, res) => {
   try {
@@ -12,7 +12,7 @@ const verifyCertificate = async (req, res) => {
             fullName: true,
             matricule: true,
             placeOfBirth: true,
-            dateOfBirth: true ,
+            dateOfBirth: true 
           }
         }
       }
@@ -55,7 +55,7 @@ const verifyCertificate = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Something went wrong', error: error.message }); // ✅ fixed
+    res.status(500).json({ message: 'Something went wrong', error: error.message }); 
   }
 };
 

@@ -1,15 +1,21 @@
 const prisma = require('../config/prisma');
 
+
 const submitContact = async (req, res) => {
   try {
-    const { name, email, message } = req.body;
+    const { name, email, phone, institution, message, agreedToPolicy} = req.body;
 
     if (!name || !email || !message) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
+     if (!agreedToPolicy) {
+      return res.status(400).json({ message: 'You must agree to the privacy policy' });
+    }
+
+    // save to the contact table in database 
     const contact = await prisma.contact.create({
-      data: { name, email, message }
+      data: {name, email, phone, institution, message, agreedToPolicy}
     });
 
     res.json({ message: 'Message sent successfully', contact });
@@ -19,3 +25,5 @@ const submitContact = async (req, res) => {
 };
 
 module.exports = { submitContact };
+
+

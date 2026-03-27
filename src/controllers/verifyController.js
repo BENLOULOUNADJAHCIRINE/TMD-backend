@@ -1,9 +1,12 @@
 const prisma = require('../config/prisma');
 
+// get the code from the URL
 const verifyCertificate = async (req, res) => {
   try {
     const { uniqueCode } = req.params;
 
+    //sepecify the field to return do not return personal data
+    
     const certificate = await prisma.certificate.findUnique({
       where: { uniqueCode },
       include: {
@@ -31,7 +34,7 @@ const verifyCertificate = async (req, res) => {
         message: 'Certificate has been revoked'
       });
     }
-
+     // for statistics page
     await prisma.verification.create({
       data: {
         certificateId: certificate.id,

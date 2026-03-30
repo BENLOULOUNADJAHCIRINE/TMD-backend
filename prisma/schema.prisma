@@ -2,47 +2,45 @@ generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
+
 datasource db {
   provider = "postgresql"
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String        @id @default(uuid())
   fullName     String
-  matricule    String   @unique
+  matricule    String        @unique
   password     String
-  role         Role     @default(STUDENT)
+  role         Role          @default(STUDENT)
   dateOfBirth  String?
   placeOfBirth String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   certificates Certificate[]
   requests     Request[]
 }
 
 model Certificate {
-  id          String      @id @default(uuid())
-  studentId   String
-  student     User        @relation(fields: [studentId], references: [id])
-  type        String
-  specialty   String
-  mention     String?
-  faculty     String?
-  sectionNum  String?
-  facultyNum  String?
-  issueDate   DateTime    @default(now())
-  status      CertStatus  @default(ACTIVE)
-  fileUrl     String?
-  uniqueCode  String      @unique
-
+  id            String         @id @default(uuid())
+  studentId     String
+  type          String
+  specialty     String
+  mention       String?
+  faculty       String?
+  sectionNum    String?
+  facultyNum    String?
+  issueDate     DateTime       @default(now())
+  status        CertStatus     @default(ACTIVE)
+  fileUrl       String?
+  uniqueCode    String         @unique
+  student       User           @relation(fields: [studentId], references: [id])
   verifications Verification[]
 }
 
 model Request {
   id           String        @id @default(uuid())
   studentId    String
-  student      User          @relation(fields: [studentId], references: [id])
   documentType String
   reason       String
   delivery     String
@@ -51,25 +49,23 @@ model Request {
   fileUrl      String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  student      User          @relation(fields: [studentId], references: [id])
 }
 
 model Verification {
   id            String      @id @default(uuid())
   certificateId String
-  certificate   Certificate @relation(fields: [certificateId], references: [id])
   verifiedAt    DateTime    @default(now())
   ipAddress     String?
+  certificate   Certificate @relation(fields: [certificateId], references: [id])
 }
 
 model Contact {
-  id              String   @id @default(uuid())
-  name            String
-  email           String
-  phone           String?
-  institution     String?
-  message         String
-  agreedToPolicy  Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
 }
 
 enum Role {

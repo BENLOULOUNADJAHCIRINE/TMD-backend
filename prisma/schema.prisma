@@ -2,19 +2,22 @@ generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
-
 datasource db {
   provider = "postgresql"
+ 
 }
 
 model User {
   id           String        @id @default(uuid())
-  fullName     String
-  matricule    String        @unique
+  fullName     String?
+  matricule    String?       @unique
+  email        String?       @unique
   password     String
   role         Role          @default(STUDENT)
   dateOfBirth  String?
   placeOfBirth String?
+  year         String?
+  isGraduated  Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   certificates Certificate[]
@@ -22,20 +25,21 @@ model User {
 }
 
 model Certificate {
-  id            String         @id @default(uuid())
-  studentId     String
-  type          String
-  specialty     String
-  mention       String?
-  faculty       String?
-  sectionNum    String?
-  facultyNum    String?
-  issueDate     DateTime       @default(now())
-  status        CertStatus     @default(ACTIVE)
-  fileUrl       String?
-  uniqueCode    String         @unique
-  student       User           @relation(fields: [studentId], references: [id])
-  verifications Verification[]
+  id             String         @id @default(uuid())
+  studentId      String
+  type           String
+  specialty      String
+  mention        String?
+  faculty        String?
+  sectionNum     String?
+  facultyNum     String?
+  issueDate      DateTime       @default(now())
+  graduationDate String?
+  status         CertStatus     @default(ACTIVE)
+  fileUrl        String?
+  uniqueCode     String         @unique
+  student        User           @relation(fields: [studentId], references: [id])
+  verifications  Verification[]
 }
 
 model Request {

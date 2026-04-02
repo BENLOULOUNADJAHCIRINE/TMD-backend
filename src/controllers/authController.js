@@ -2,20 +2,28 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 
+// login
 const login = async (req, res) => {
   try {
-    const { matricule, password } = req.body;
+  const { matricule, email, password } = req.body;
 
-    if (!matricule || !password) {
-      return res.status(400).json({ message: 'matricule and password are required' });
+  const user = await prisma.user.findFirst({
+    where: {
+        OR: [
+         matricule ? { matricule } : undefined,
+        email ? { email } : undefined,
+        ].filter(Boolean)
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const user = await prisma.user.findUnique({ where: { matricule } });
-    if (!user) return res.status(404).json({ message: 'user not found' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'wrong password' });
-
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'invalid password' });
+    }
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
@@ -23,71 +31,84 @@ const login = async (req, res) => {
     );
 
     res.json({
-      message: 'login successful',
+      message: 'Login successful',
       token,
       user: {
         id: user.id,
         fullName: user.fullName,
         matricule: user.matricule,
+        email: user.email,
         role: user.role
       }
     });
-
-  } catch (err) {
-    console.error('login error:', err);
-    res.status(500).json({ message: 'something went wrong' });
+  } catch (error) {
+    res.status(500).json({ message: 'Something went wrong', error });
   }
 };
 
+// change password
 const changePassword = async (req, res) => {
   try {
-    const { matricule, currentPassword, newPassword } = req.body;
+    const { matricule, email, currentPassword, newPassword } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { matricule } });
-    if (!user) return res.status(404).json({ message: 'user not found' });
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'current password is wrong' });
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'new password must be at least 6 characters' });
-    }
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { matricule },
-      data: { password: hashed }
+    // find by matricule  for student by mail for admins
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          matricule ? { matricule } : undefined,
+          email ? { email } : undefined,
+        ].filter(Boolean)
+      }
     });
 
-    res.json({ message: 'password updated' });
+    if (!user) {
+      return res.status(404).json({ message: 'user not found' });
+    }
 
-  } catch (err) {
-    console.error('change password error:', err);
-    res.status(500).json({ message: 'something went wrong' });
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Something went wrong', error });
   }
 };
 
+// seed superadmin
 const seedSuperAdmin = async (req, res) => {
   try {
-    const exists = await prisma.user.findFirst({ where: { role: 'SUPER_ADMIN' } });
-    if (exists) return res.status(400).json({ message: 'super admin already exists' });
+    const existing = await prisma.user.findFirst({
+      where: { role: 'SUPER_ADMIN' }
+    });
 
-    const hashed = await bcrypt.hash('superadmin123', 10);
+    if (existing) {
+      return res.status(400).json({ message: 'Super Admin already exists'});
+    }
 
-    await prisma.user.create({
+    const hashedPassword = await bcrypt.hash('superadmin123', 10);
+
+    const superAdmin = await prisma.user.create({
       data: {
         fullName: 'Super Admin',
         matricule: 'SUPERADMIN',
-        password: hashed,
+        password: hashedPassword,
         role: 'SUPER_ADMIN'
       }
     });
 
-    res.status(201).json({ message: 'super admin created' });
-
-  } catch (err) {
-    console.error('seed error:', err);
-    res.status(500).json({ message: 'something went wrong' });
+    res.json({ message: 'Super Admin created successfully', superAdmin });
+  } catch (error) {
+    res.status(500).json({ message: 'Something went wrong', error });
   }
 };
 

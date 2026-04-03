@@ -1,6 +1,6 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcrypt");
-
+const { sendEmail } = require("../utils/sendEmail");
 // main admin dashboard
 const dashboard = async (req, res) => {
   try {
@@ -69,6 +69,82 @@ const getRequests = async (req, res) => {
       rejectedRequests,
       fullList,
     });
+  } catch (err) {
+    res.status(500).json({ error: "an error occured in the server" });
+  }
+};
+
+// request approval or rejection
+const handleRequestStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const id = req.params.id;
+    const findRequest = await prisma.request.findUnique({
+      where: { id: id },
+      include: { student: true },
+    });
+    if (!findRequest) {
+      return res.status(400).json({ message: "request not found" });
+    }
+    if (status === "APPROVED") {
+      await prisma.request.update({
+        where: { id: id },
+        data: {
+          status: "APPROVED",
+        },
+      });
+    } else {
+      await prisma.request.update({
+        where: { id: id },
+        data: {
+          status: "REJECTED",
+        },
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: "an error occured in the server" });
+  }
+};
+
+// request upload document
+const handleRequestDocument = async (req, res) => {
+  const id = req.params.id;
+  try {
+    const file = req.files.document;
+    if (!file) {
+      return res.status(400).json({ message: "no file uploaded" });
+    }
+    const findRequest = await prisma.request.findUnique({
+      where: { id: id },
+      include: { student: true },
+    });
+    if (!findRequest) {
+      return res.status(400).json({ message: "request not found" });
+    }
+    const fileName = `${Date.now()}_${file.name}`;
+    await file.mv(`./uploads/${fileName}`);
+    await prisma.request.update({
+      where: { id: id },
+      data: { fileUrl: `uploads/${fileName}` },
+    });
+    if (findRequest.status === "APPROVED") {
+      await sendEmail(
+        findRequest.student.email,
+        "Request Approved",
+        `<h2>Hello ${findRequest.student.fullName}</h2>
+        <p>Your request for <strong>${findRequest.documentType}</strong> has been approved.</p>
+        <p>You can download your document from your dashboard.</p>`,
+      );
+    } else {
+      await sendEmail(
+        findRequest.student.email,
+        "Request Rejected",
+        `<h2>Hello ${findRequest.student.fullName}</h2>
+       <p>Your request for <strong>${findRequest.documentType}</strong> has been rejected.</p>
+      <p>Please contact your university for more information.</p>`,
+      );
+    }
+    res.status(200).json({ message: "File uploaded succesfully" });
   } catch (err) {
     res.status(500).json({ error: "an error occured in the server" });
   }

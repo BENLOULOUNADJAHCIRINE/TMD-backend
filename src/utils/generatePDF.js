@@ -3,7 +3,7 @@ const path = require("path");
 const puppeteer = require("puppeteer");
 
 const generateDiplomaPDF = async (studentData) => {
-  const templatePath = path.join(__dirname, "../templates/certificat.html");
+  const templatePath = path.join(__dirname, "../templates/certificate.html");
   let html = fs.readFileSync(templatePath, "utf8");
 
   html = html.replace("{{fullName}}", studentData.fullName);
@@ -12,7 +12,7 @@ const generateDiplomaPDF = async (studentData) => {
   html = html.replace("{{sectionNum}}", studentData.sectionNum);
   html = html.replace("{{facultyNum}}", studentData.facultyNum);
   html = html.replace("{{mention}}", studentData.mention);
-  html = html.replace("{{graduationDate}}", studentData.graduationDate);
+  html = html.replace(/{{graduationDate}}/g, studentData.graduationDate);
   html = html.replace("{{issueDate}}", studentData.issueDate);
   html = html.replace("{{uniqueCode}}", studentData.uniqueCode);
 

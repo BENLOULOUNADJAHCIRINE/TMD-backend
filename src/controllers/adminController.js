@@ -1,8 +1,9 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcrypt");
-const { sendEmail } = require("../utils/sendEmail");
+const sendEmail = require("../utils/sendEmail");
 const XLSX = require("xlsx");
 const generateDiplomaPDF = require("../utils/generatePDF");
+const universityDB = require("../config/universityDB");
 
 // main admin dashboard
 const dashboard = async (req, res) => {
@@ -31,7 +32,7 @@ const dashboard = async (req, res) => {
       include: {
         student: true,
       },
-      orderbBy: {
+      orderBy: {
         issueDate: "desc",
       },
     });
@@ -43,6 +44,7 @@ const dashboard = async (req, res) => {
       recentActivity,
     });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ error: "an error occured in the server" });
   }
 };
@@ -104,6 +106,7 @@ const handleRequestStatus = async (req, res) => {
         },
       });
     }
+    res.status(200).json({ message: "Request status updated successfully" });
   } catch (err) {
     res.status(500).json({ error: "an error occured in the server" });
   }

@@ -66,10 +66,12 @@ const changePassword = async (req, res) => {
       where: { id: userId },
     });
     const { currentPassword, newPassword } = req.body;
+    // check if the current password is correct
     const identical = await bcrypt.compare(currentPassword, student.password);
     if (!identical) {
       return res.status(400).json({ message: "Current password is false" });
     }
+    // hash the new password and update it in the database
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { id: userId },

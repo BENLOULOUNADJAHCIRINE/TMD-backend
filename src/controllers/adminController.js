@@ -1,6 +1,9 @@
 const prisma = require("../config/prisma");
 const bcrypt = require("bcrypt");
 const { sendEmail } = require("../utils/sendEmail");
+const XLSX = require("xlsx");
+const generateDiplomaPDF = require("../utils/generatePDF");
+
 // main admin dashboard
 const dashboard = async (req, res) => {
   try {
@@ -202,4 +205,158 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { changePassword, revokeCertificate, getRequests, dashboard };
+// sync Student
+const syncStudents = async (req, res) => {
+  try {
+    const result = await universityDB.query("SELECT * FROM students");
+    const students = result.rows;
+    if (students.length == 0) {
+      return res
+        .status(404)
+        .json({ message: "no students found in university database" });
+    }
+    let created = 0;
+    let skipped = 0;
+
+    for (const student of students) {
+      const exists = await prisma.user.findUnique({
+        where: { matricule: student.matricule },
+      });
+      if (exists) {
+        skipped++;
+        continue;
+      }
+
+      const dateOfBirth = student.date_of_birth.toISOString().split("T")[0];
+      const hashed = await bcrypt.hash(dateOfBirth, 10);
+      await prisma.user.create({
+        data: {
+          fullName: student.full_name,
+          matricule: student.matricule,
+          password: hashed,
+          role: "STUDENT",
+          dateOfBirth: dateOfBirth,
+          placeOfBirth: student.place_of_birth,
+          isGraduated: student.is_graduated,
+        },
+      });
+      created++;
+    }
+    res.json({
+      message: "sync completed",
+      created,
+      skipped,
+      total: students.length,
+    });
+  } catch (err) {
+    console.error("sync error:", err);
+    res.status(500).json({ message: "something went wrong" });
+  }
+};
+
+// import students from excel file
+const importDiplomas = async (req, res) => {
+  try {
+    const { graduationDate } = req.body;
+    const file = req.files.excel;
+
+    if (!file) {
+      return res.status(400).json({ message: "no file uploaded" });
+    }
+    if (!graduationDate) {
+      return res.status(400).json({ message: "graduationDate is required" });
+    }
+
+    // Read the excel file
+    const workbook = XLSX.read(file.data);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: "excel file is empty" });
+    }
+
+    let created = 0;
+    const errors = [];
+
+    for (const row of rows) {
+      // Find student by matricule
+      const student = await prisma.user.findUnique({
+        where: { matricule: String(row.matricule) },
+      });
+
+      // If student not found skip
+      if (!student) {
+        errors.push({ matricule: row.matricule, error: "student not found" });
+        continue;
+      }
+
+      // Generate unique code
+      const uniqueCode = `CERT-${student.matricule}-${Date.now()}`;
+
+      // Create certificate in DB
+      const certificate = await prisma.certificate.create({
+        data: {
+          studentId: student.id,
+          type: row.type,
+          specialty: row.specialty,
+          mention: row.mention,
+          faculty: row.faculty,
+          sectionNum: String(row.sectionNum),
+          facultyNum: String(row.facultyNum),
+          graduationDate: graduationDate,
+          uniqueCode: uniqueCode,
+          status: "ACTIVE",
+        },
+      });
+
+      // Generate PDF
+      const pdfPath = await generateDiplomaPDF({
+        fullName: student.fullName,
+        specialty: row.specialty,
+        faculty: row.faculty,
+        sectionNum: String(row.sectionNum),
+        facultyNum: String(row.facultyNum),
+        mention: row.mention,
+        graduationDate: graduationDate,
+        issueDate: new Date().toISOString().split("T")[0],
+        uniqueCode: uniqueCode,
+      });
+
+      // Save PDF path to certificate
+      await prisma.certificate.update({
+        where: { id: certificate.id },
+        data: { fileUrl: pdfPath },
+      });
+
+      // Update student isGraduated
+      await prisma.user.update({
+        where: { id: student.id },
+        data: { isGraduated: true },
+      });
+
+      created++;
+    }
+
+    res.status(200).json({
+      message: "import completed",
+      created,
+      errors,
+      total: rows.length,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "an error occurred in the server" });
+  }
+};
+
+module.exports = {
+  changePassword,
+  revokeCertificate,
+  getRequests,
+  dashboard,
+  syncStudents,
+  handleRequestStatus,
+  handleRequestDocument,
+  importDiplomas,
+};
